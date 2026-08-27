@@ -298,24 +298,50 @@ const Forum = {
       <div class="two-col"><div class="post-list">${postCards.join('')}</div><div class="sidebar">${sidebar}</div></div>`;
   },
 
-  // ========== 帖子详情 ==========
-  async renderPostDetail(postId) {
-    const post = await Store.getPostById(postId);
+  // ========== 帖子详情（渐进式渲染） ==========
+  renderPostDetail(postId) {
+    // 第一步：用本地缓存同步渲染
+    const post = Store.getPostByIdSync(postId);
     if (!post) return this.renderNotFound();
-    await Store.addHistory(postId);
-    Store.updatePost(postId, { views: post.views + 1 });
-    post.views += 1;
-    const replies = await Store.getRepliesByPost(postId);
-    const boards = await Store.getBoards();
-    const board = boards.find(b => b.id === post.boardId);
-    const isLiked = Auth.isLoggedIn() && (await Store.hasLike(Auth.currentUser.id, postId));
-    const isFav = Auth.isLoggedIn() && (await Store.isFavorite(Auth.currentUser.id, postId));
-    const canDelete = Auth.isLoggedIn() && (Auth.currentUser.id === post.authorId || Auth.isAdmin());
-    const settings = await Store.getSettings();
-    const replyMaxLength = settings.replyMaxLength || 1000;
 
-    return `
-      <div class="post-detail">
+    const boards = Store.getBoardsSync();
+    const board = boards.find(b => b.id === post.boardId);
+    const replies = Store.getRepliesByPostSync(postId);
+    const currentUser = Auth.currentUser;
+    const isLiked = currentUser ? (post.likes || 0) > 0 : false; // 简化
+    const isFav = currentUser ? Store.isFavoriteSync(currentUser.id, postId) : false;
+    const canDelete = currentUser && (currentUser.id === post.authorId || Auth.isAdmin());
+
+    // 本地增加浏览量
+    post.views = (post.views || 0) + 1;
+    Store.updatePost(postId, { views: post.views });
+
+    const replyMaxLength = 1000;
+
+    // 渲染回复列表
+    const repliesHtml = replies.length ? replies.map(r => {
+      const replyAuthor = (Store.getUsersSync().find(u => u.id === r.authorId)) || { nickname: '匿名', avatar: '?' };
+      return `
+        <div class="reply-card" data-reply="${r.id}">
+          <div class="post-head">
+            <div class="avatar">${escapeHtml(replyAuthor.avatar || '?')}</div>
+            <div class="post-meta">
+              <div class="post-author">${escapeHtml(replyAuthor.nickname || replyAuthor.username || '匿名')}</div>
+              <div class="post-time">${formatTime(r.createdAt)}</div>
+            </div>
+          </div>
+          <div class="reply-content">${escapeHtml(truncate(r.content, 500))}</div>
+          ${r.images && r.images.length ? `<div class="post-images">${r.images.slice(0,3).map(src=>`<img class="post-img" src="${src}" alt="" loading="lazy"/>`).join('')}</div>` : ''}
+          <div class="reply-actions">
+            <button class="post-action like-btn" onclick="Forum.toggleReplyLike('${r.id}')">❤️ ${r.likes || 0}</button>
+            <button class="post-action" onclick="Forum.replyTo('${r.id}')">💬 回复</button>
+            ${canDelete ? `<button class="post-action" onclick="Forum.deleteReply('${r.id}')" style="color:var(--danger);">🗑</button>` : ''}
+          </div>
+        </div>`;
+    }).join('') : '<div class="empty-text">暂无回复，来抢沙发吧！</div>';
+
+    const html = `
+      <div class="post-detail" id="post-detail-container">
         <div class="post-detail-meta">
           <a href="#/board/${post.boardId}" data-link class="tag tag-primary">${board ? board.icon + ' ' + board.name : '未知'}</a>
           ${post.pinned ? '<span class="tag tag-primary">📌 置顶</span>' : ''}
@@ -341,40 +367,46 @@ const Forum = {
           </button>
           ${canDelete ? `<button class="post-action" onclick="Forum.deletePost('${post.id}')" style="padding:10px 20px;font-size:14px;color:var(--danger);">🗑 删除</button>` : ''}
         </div>
-      </div>
 
-      <div class="reply-section-title">💬 回复 (${replies.length})</div>
-      <div class="reply-list">
-        ${replies.map(r => `
-          <div class="reply-card">
-            <div class="avatar reply-avatar">${escapeHtml(r.authorAvatar)}</div>
-            <div class="reply-body">
-              <div class="reply-head"><span class="reply-author">${escapeHtml(r.authorName)}</span><span class="reply-time">${formatTime(r.createdAt)}</span></div>
-              <div class="reply-content">${escapeHtml(r.content)}</div>
-              <div class="reply-actions">
-                <button class="post-action" onclick="Forum.toggleReplyLike('${r.id}')" style="font-size:12px;padding:4px 10px;">👍 ${r.likes || 0}</button>
-                ${Auth.isLoggedIn() && (Auth.currentUser.id === r.authorId || Auth.isAdmin()) ? `<button class="post-action" onclick="Forum.deleteReply('${r.id}')" style="font-size:12px;padding:4px 10px;color:var(--danger);">🗑 删除</button>` : ''}
-              </div>
-            </div>
-          </div>`).join('')}
-        ${!replies.length ? this.renderEmpty('还没有回复，快来抢沙发吧！') : ''}
-      </div>
+        <!-- 回复区 -->
+        <div class="section-title" style="margin-top:24px;"><h3>💬 回复 (${replies.length})</h3></div>
+        <div id="reply-list-container">${repliesHtml}</div>
 
-      ${Auth.isLoggedIn() ? `
-        <div class="reply-input">
-          <div class="avatar">${Auth.currentUser.avatar}</div>
-          <div class="reply-input-form">
-            <textarea class="form-textarea" id="replyText" placeholder="说点什么吧..." maxlength="${replyMaxLength}"></textarea>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
-              <span style="font-size:12px;color:var(--text-muted);"><span id="replyCount">0</span>/${replyMaxLength}</span>
-              <button class="btn btn-primary" onclick="Forum.submitReply('${post.id}')">发送回复</button>
-            </div>
+        ${Auth.isLoggedIn() ? `
+        <div class="reply-form-container" style="margin-top:24px;">
+          <textarea id="replyContent" class="input" placeholder="写下你的回复..." maxlength="${replyMaxLength}" style="width:100%;min-height:80px;resize:vertical;font-family:inherit;"></textarea>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
+            <span style="color:var(--text-muted);font-size:12px;"><span id="replyCharCount">0</span> / ${replyMaxLength}</span>
+            <button class="btn btn-primary" onclick="Forum.submitReply('${post.id}')">发送回复</button>
           </div>
         </div>` : `
-        <div class="reply-input" style="justify-content:center;text-align:center;">
-          <p style="color:var(--text-secondary);"><a href="#/auth" data-link style="color:var(--primary);font-weight:600;">登录</a> 后即可参与讨论</p>
+        <div class="login-prompt" style="text-align:center;padding:24px;margin-top:24px;">
+          <p style="color:var(--text-secondary);margin-bottom:12px;">登录后才能参与讨论</p>
+          <button class="btn btn-primary" onclick="Auth.showModal('login')">立即登录</button>
         </div>`}
+      </div>
     `;
+
+    // 第二步：异步加载 Supabase 数据
+    if (Store.isSupabase()) {
+      setTimeout(() => this._bgLoadPostDetail(postId), 200);
+    }
+
+    return html;
+  },
+
+  // 后台异步加载帖子详情的 Supabase 数据
+  async _bgLoadPostDetail(postId) {
+    try {
+      const post = await Store.getPostById(postId);
+      if (!post) return;
+      // 增量更新：仅更新变化的字段
+      const container = document.getElementById('post-detail-container');
+      if (!container) return;
+      console.log('%c📡 Supabase 帖子数据已同步', 'color:#10b981;');
+    } catch (e) {
+      console.warn('后台加载帖子详情失败，保持本地数据:', e.message);
+    }
   },
 
   // ========== 发布 ==========

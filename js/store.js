@@ -87,6 +87,16 @@ const Store = {
     return [...this.localCache.replies];
   },
 
+  getPostByIdSync(id) {
+    return this.localCache.posts.find(p => p.id === id) || null;
+  },
+
+  getRepliesByPostSync(postId) {
+    return this.localCache.replies
+      .filter(r => r.postId === postId)
+      .sort((a, b) => a.createdAt - b.createdAt);
+  },
+
   // 超时保护的 Supabase 查询包装
   // 使用: this.safeQuery(() => db.client.from('...').select('...'), [默认值], 3000)
   async safeQuery(fn, fallback = null, timeoutMs = 3000) {
@@ -520,6 +530,10 @@ const Store = {
   },
 
   // ========== 收藏 ==========
+  isFavoriteSync(userId, postId) {
+    return !!(this.localCache.favorites[userId]?.includes(postId));
+  },
+
   async isFavorite(userId, postId) {
     if (this.isSupabase()) {
       const { data } = await window.DB.client

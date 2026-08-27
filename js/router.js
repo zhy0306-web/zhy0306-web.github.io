@@ -54,22 +54,23 @@ const Router = {
     app.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;padding:60px;min-height:300px;"><div class="loader" style="width:40px;height:40px;border:3px solid var(--glass-border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;"></div></div>';
 
     try {
-      // 首页是同步渲染，不需要超时保护
+      // 渐进式渲染：首页和帖子详情都是同步渲染，不等待 Supabase
       let content;
-      const isHome = path === '/' || path === '';
+      const isSyncRender = path === '/' || path === '' || path.startsWith('/post/');
 
-      if (isHome) {
-        // 同步渲染：立即返回，不等待 Supabase
-        content = Forum.renderHome();
+      if (isSyncRender) {
+        if (path.startsWith('/post/')) {
+          const postId = path.slice(6);
+          content = Forum.renderPostDetail(postId);
+        } else {
+          content = Forum.renderHome();
+        }
       } else {
         // 异步渲染 + 超时保护（10 秒，微信浏览器网络较慢）
         const renderPromise = (async () => {
           if (path.startsWith('/board/')) {
             const boardId = path.slice(7);
             return await Forum.renderBoardDetail(boardId);
-          } else if (path.startsWith('/post/')) {
-            const postId = path.slice(6);
-            return await Forum.renderPostDetail(postId);
           } else if (path.startsWith('/publish')) {
             return await Forum.renderPublish(params.board);
           } else if (path.startsWith('/admin')) {

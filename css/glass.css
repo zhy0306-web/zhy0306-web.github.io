@@ -66,13 +66,11 @@ body {
   touch-action: manipulation;
   /* 防止微信浏览器中 fixed 元素消失 */
   padding-top: 0 !important;
-  /* 关键：开启惯性滚动但不影响 fixed */
+  /* 开启惯性滚动，但不要用 transform 包裹 body —— 会破坏 fixed 定位 */
   -webkit-overflow-scrolling: touch;
   overflow-x: hidden;
   overflow-y: auto;
-  /* 关键：防止滚动重排导致 fixed 元素消失 */
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
+  /* 注意：不要在 body 上使用 transform/translateZ —— 会导致 fixed 子元素变成相对定位 */
 }
 
 /* 微信浏览器中固定元素的特殊处理 - 彻底修复滚动时消失问题 */
