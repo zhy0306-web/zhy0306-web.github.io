@@ -25,6 +25,10 @@ const Forum = {
             <div class="hero-badge"><img src="images/logo.png" alt="校徽" class="hero-badge-logo" /> 漳州一中 · 八年12班</div>
             <h1 class="hero-title">欢迎来到班级交流论坛</h1>
             <p class="hero-desc">这里是我们八年12班的数字家园 🎉 分享学习心得、记录校园生活、参与班级活动，一起让我们的班级更美好！</p>
+            <a href="https://github.com/zhy0306-web/zzyz-class12-forum" target="_blank" rel="noopener" class="hero-github-btn" title="在 GitHub 上查看开源项目">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2.2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.32-1.27-1.67-1.27-1.67-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.02 1.75 2.68 1.24 3.33.95.1-.74.4-1.24.72-1.53-2.55-.29-5.24-1.27-5.24-5.65 0-1.25.45-2.27 1.19-3.07-.12-.29-.52-1.46.11-3.04 0 0 .97-.31 3.17 1.18a10.98 10.98 0 015.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.58.23 2.75.11 3.04.74.8 1.19 1.82 1.19 3.07 0 4.39-2.69 5.36-5.26 5.64.41.35.77 1.05.77 2.12v3.14c0 .31.21.67.8.56A11.51 11.51 0 0023.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
+              <span>GitHub 开源项目</span>
+            </a>
           </div>
           <div class="hero-stats">
             <div class="hero-stat"><div class="hero-stat-num">${totalPosts}</div><div class="hero-stat-label">帖子</div></div>
