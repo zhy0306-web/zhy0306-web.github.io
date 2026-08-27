@@ -50,37 +50,43 @@ const Router = {
     const app = document.getElementById('app');
     if (!app) return;
 
-    // 显示加载状态
+    // 显示加载状态（仅异步渲染页面使用）
     app.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;padding:60px;min-height:300px;"><div class="loader" style="width:40px;height:40px;border:3px solid var(--glass-border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;"></div></div>';
 
     try {
-      // 渲染超时保护：5 秒内必须完成渲染，否则降级
-      const renderPromise = (async () => {
-        let content = '';
+      // 首页是同步渲染，不需要超时保护
+      let content;
+      const isHome = path === '/' || path === '';
 
-        if (path.startsWith('/board/')) {
-          const boardId = path.slice(7);
-          content = await Forum.renderBoardDetail(boardId);
-        } else if (path.startsWith('/post/')) {
-          const postId = path.slice(6);
-          content = await Forum.renderPostDetail(postId);
-        } else if (path.startsWith('/publish')) {
-          content = await Forum.renderPublish(params.board);
-        } else if (path.startsWith('/admin')) {
-          content = await this.routes['/admin'](params);
-        } else if (this.routes[path]) {
-          content = await this.routes[path](params);
-        } else {
-          content = Forum.renderNotFound();
-        }
-        return content;
-      })();
+      if (isHome) {
+        // 同步渲染：立即返回，不等待 Supabase
+        content = Forum.renderHome();
+      } else {
+        // 异步渲染 + 超时保护（10 秒，微信浏览器网络较慢）
+        const renderPromise = (async () => {
+          if (path.startsWith('/board/')) {
+            const boardId = path.slice(7);
+            return await Forum.renderBoardDetail(boardId);
+          } else if (path.startsWith('/post/')) {
+            const postId = path.slice(6);
+            return await Forum.renderPostDetail(postId);
+          } else if (path.startsWith('/publish')) {
+            return await Forum.renderPublish(params.board);
+          } else if (path.startsWith('/admin')) {
+            return await this.routes['/admin'](params);
+          } else if (this.routes[path]) {
+            return await this.routes[path](params);
+          } else {
+            return Forum.renderNotFound();
+          }
+        })();
 
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('渲染超时')), 5000)
-      );
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('渲染超时')), 10000)
+        );
 
-      const content = await Promise.race([renderPromise, timeoutPromise]);
+        content = await Promise.race([renderPromise, timeoutPromise]);
+      }
 
       if (!content) {
         throw new Error('渲染返回空内容');
@@ -99,7 +105,7 @@ const Router = {
       // 绑定链接
       this.initLinks();
 
-      // 滚动到顶部（移动端使用即时滚动避免 fixed 元素异常）
+      // 滚动到顶部
       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
       if (isMobile) {
         window.scrollTo({ top: 0, behavior: 'auto' });
@@ -111,7 +117,6 @@ const Router = {
       this.updateTitle(path);
     } catch (err) {
       console.error('路由错误:', err);
-      // 降级：显示基础内容，不再转圈
       app.innerHTML = `
         <div class="empty-state" style="padding:60px 20px;">
           <div class="empty-icon">⚠️</div>

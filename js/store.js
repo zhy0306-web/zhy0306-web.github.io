@@ -65,6 +65,28 @@ const Store = {
     return window.DB && window.DB.isSupabase();
   },
 
+  // 同步获取本地缓存数据（用于首屏即时渲染，不等 Supabase）
+  // 返回值与异步版本兼容，但不发起任何网络请求
+  getPostsSync() {
+    return [...this.localCache.posts].sort((a, b) => {
+      if (a.pinned !== b.pinned) return b.pinned ? 1 : -1;
+      if (a.featured !== b.featured) return b.featured ? 1 : -1;
+      return b.createdAt - a.createdAt;
+    });
+  },
+
+  getBoardsSync() {
+    return this.localCache.boards.map(b => ({ ...b }));
+  },
+
+  getUsersSync() {
+    return this.localCache.users.map(u => this.serializeUser(u));
+  },
+
+  getRepliesSync() {
+    return [...this.localCache.replies];
+  },
+
   // 超时保护的 Supabase 查询包装
   // 使用: this.safeQuery(() => db.client.from('...').select('...'), [默认值], 3000)
   async safeQuery(fn, fallback = null, timeoutMs = 3000) {

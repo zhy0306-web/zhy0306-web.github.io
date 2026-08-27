@@ -1,9 +1,12 @@
 // ===== 论坛页面渲染 =====
 const Forum = {
-  // ========== 首页 ==========
-  async renderHome() {
-    const posts = await Store.getPosts();
-    const boards = await Store.getBoards();
+  // ========== 首页（渐进式渲染：先用本地数据渲染，再异步加载 Supabase） ==========
+  renderHome() {
+    // 第一步：用本地缓存同步渲染（立即显示，不等待 Supabase）
+    const posts = Store.getPostsSync();
+    const boards = Store.getBoardsSync();
+    const users = Store.getUsersSync();
+    const replies = Store.getRepliesSync();
     const sorted = [...posts].sort((a, b) => {
       if (a.pinned !== b.pinned) return b.pinned ? 1 : -1;
       if (a.featured !== b.featured) return b.featured ? 1 : -1;
@@ -11,14 +14,62 @@ const Forum = {
     });
     const recentPosts = sorted.slice(0, 6);
     const totalPosts = posts.length;
-    const totalUsers = (await Store.getUsers()).length;
-    const totalReplies = (await Store.getReplies()).length;
+    const totalUsers = users.length;
+    const totalReplies = replies.length;
     const boardNotice = sorted.find(p => p.boardId === 'board_notice' && p.pinned) || sorted[0];
-    const boardCards = await Promise.all(boards.slice(0, 6).map(b => this.renderBoardCard(b)));
-    const postCards = await Promise.all(recentPosts.map(p => this.renderPostCard(p)));
-    const sidebar = await this.renderSidebar();
 
-    return `
+    // 同步渲染板块卡片（用本地数据）
+    const boardCards = boards.slice(0, 6).map(b => {
+      const postCount = posts.filter(p => p.boardId === b.id).length;
+      return `
+        <a class="board-card" href="#/board/${b.id}" data-link>
+          <div class="board-icon" style="background:linear-gradient(135deg, ${b.color}, ${b.color}dd);">${b.icon}</div>
+          <div class="board-info"><h3>${escapeHtml(b.name)}</h3><p>${escapeHtml(b.description)}</p></div>
+          <div class="board-meta"><span>📝 ${postCount} 帖</span></div>
+        </a>`;
+    }).join('');
+
+    // 同步渲染帖子卡片（简化版，用本地数据）
+    const postCards = recentPosts.map(p => {
+      const board = boards.find(b => b.id === p.boardId);
+      const imgCount = p.images ? p.images.length : 0;
+      const imgClass = imgCount === 1 ? 'single' : imgCount === 2 ? 'two' : '';
+      return `
+        <div class="post-card ${p.pinned ? 'pinned' : ''} ${p.featured ? 'featured' : ''}" data-post="${p.id}" onclick="Router.navigate('/post/${p.id}')">
+          <div class="post-head">
+            <div class="avatar">${escapeHtml(p.authorAvatar)}</div>
+            <div class="post-meta">
+              <div class="post-author">
+                ${escapeHtml(p.authorName)}
+                ${p.pinned ? '<span class="tag tag-primary" style="font-size:10px;padding:1px 6px;margin-left:6px;">📌 置顶</span>' : ''}
+                ${p.featured ? '<span class="tag tag-accent" style="font-size:10px;padding:2px 8px;margin-left:4px;">⭐ 加精</span>' : ''}
+              </div>
+              <div class="post-time">${typeof formatTime === 'function' ? formatTime(p.createdAt) : ''} · ${board ? board.name : ''}</div>
+            </div>
+          </div>
+          <div class="post-title-row"><h3 class="post-title">${escapeHtml(p.title)}</h3></div>
+          ${p.tags && p.tags.length ? `<div class="post-tags">${p.tags.map(t => `<span class="tag" style="font-size:10px;padding:2px 8px;">#${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+          <p class="post-excerpt">${escapeHtml(truncate(p.content, 150))}</p>
+          ${imgCount ? `<div class="post-images ${imgClass}">${p.images.slice(0, 3).map(src => `<img class="post-img" src="${src}" alt="" loading="lazy" />`).join('')}</div>` : ''}
+          <div class="post-actions" onclick="event.stopPropagation();">
+            <button class="post-action like-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>${p.likes}</button>
+            <button class="post-action"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>${p.replies}</button>
+            <button class="post-action" style="margin-left:auto;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>${p.views}</button>
+          </div>
+        </div>`;
+    }).join('');
+
+    // 侧边栏（用本地数据同步渲染）
+    const hotPosts = [...posts].sort((a, b) => (b.likes + b.replies * 2) - (a.likes + a.replies * 2)).slice(0, 5);
+    const sidebarItems = boards.map(b => {
+      const count = posts.filter(p => p.boardId === b.id).length;
+      return `<a class="sidebar-item" href="#/board/${b.id}" data-link><span>${b.icon} ${escapeHtml(b.name)}</span><span class="sidebar-count">${count}</span></a>`;
+    }).join('');
+    const sidebarHot = hotPosts.map((p, i) =>
+      `<a class="sidebar-item" href="#/post/${p.id}" data-link><span>${['🥇','🥈','🥉','4️⃣','5️⃣'][i]} ${escapeHtml(truncate(p.title, 20))}</span></a>`
+    ).join('');
+
+    const html = `
       <div class="hero">
         <div class="hero-content">
           <div class="hero-left">
@@ -49,14 +100,81 @@ const Forum = {
       </div>` : ''}
 
       <div class="section-title"><h2>📋 板块导航</h2><a class="section-link" href="#/board" data-link>查看全部 →</a></div>
-      <div class="board-grid">${boardCards.join('')}</div>
+      <div class="board-grid">${boardCards}</div>
 
       <div class="section-title"><h2>🔥 最新帖子</h2><a class="section-link" href="#/explore" data-link>去广场看看 →</a></div>
       <div class="two-col">
-        <div class="post-list">${postCards.join('')}</div>
-        <div class="sidebar">${sidebar}</div>
+        <div class="post-list" id="home-post-list">${postCards || '<div class="empty-text">暂无帖子，发布第一篇吧！</div>'}</div>
+        <div class="sidebar" id="home-sidebar">
+          <div class="sidebar-card">
+            <div class="sidebar-title">📋 板块导航</div>
+            <div class="sidebar-list">${sidebarItems}</div>
+          </div>
+          <div class="sidebar-card">
+            <div class="sidebar-title">🔥 热门帖子</div>
+            <div class="sidebar-list">${sidebarHot || '<div style="color:var(--text-muted);font-size:13px;">暂无热门帖子</div>'}</div>
+          </div>
+          <div class="sidebar-card" style="text-align:center;">
+            <div class="sidebar-title" style="justify-content:center;"><img src="images/logo.png" alt="校徽" class="sidebar-logo" /> 漳州一中</div>
+            <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;">福建省漳州第一中学<br>八年12班交流论坛<br><span style="color:var(--primary);font-weight:600;">博学 · 求真 · 致远</span></p>
+          </div>
+        </div>
       </div>
     `;
+
+    // 第二步：渲染完成后，后台异步加载 Supabase 数据更新 DOM
+    if (Store.isSupabase()) {
+      setTimeout(() => this._bgLoadSupabaseHome(), 200);
+    }
+
+    return html;
+  },
+
+  // 后台异步加载 Supabase 数据，增量更新首页
+  async _bgLoadSupabaseHome() {
+    try {
+      const [posts, boards, users, replies] = await Promise.all([
+        Store.getPosts(),
+        Store.getBoards(),
+        Store.getUsers(),
+        Store.getReplies()
+      ]);
+
+      if (!posts && !boards) return; // 全部超时，保持本地数据
+
+      const sorted = [...(posts || [])].sort((a, b) => {
+        if (a.pinned !== b.pinned) return b.pinned ? 1 : -1;
+        if (a.featured !== b.featured) return b.featured ? 1 : -1;
+        return b.createdAt - a.createdAt;
+      });
+      const recentPosts = sorted.slice(0, 6);
+      const boardList = boards || Store.getBoardsSync();
+
+      // 更新帖子列表
+      const postListEl = document.getElementById('home-post-list');
+      if (postListEl && recentPosts.length > 0) {
+        postListEl.innerHTML = recentPosts.map(p => {
+          const board = boardList.find(b => b.id === p.boardId);
+          return `
+            <div class="post-card ${p.pinned ? 'pinned' : ''} ${p.featured ? 'featured' : ''}" data-post="${p.id}" onclick="Router.navigate('/post/${p.id}')">
+              <div class="post-head">
+                <div class="avatar">${escapeHtml(p.authorAvatar)}</div>
+                <div class="post-meta">
+                  <div class="post-author">${escapeHtml(p.authorName)}</div>
+                  <div class="post-time">${typeof formatTime === 'function' ? formatTime(p.createdAt) : ''} · ${board ? board.name : ''}</div>
+                </div>
+              </div>
+              <div class="post-title-row"><h3 class="post-title">${escapeHtml(p.title)}</h3></div>
+              <p class="post-excerpt">${escapeHtml(truncate(p.content, 150))}</p>
+              <div class="post-actions"><button class="post-action like-btn">❤️ ${p.likes}</button><button class="post-action">💬 ${p.replies}</button></div>
+            </div>`;
+        }).join('');
+      }
+
+      console.log('%c📡 Supabase 数据已同步到首页', 'color:#10b981;');
+    } catch (e) {
+      console.warn('后台加载 Supabase 数据失败，保持本地数据:', e.message);
+    }
   },
 
   async renderBoardCard(board) {
