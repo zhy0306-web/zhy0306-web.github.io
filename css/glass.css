@@ -57,6 +57,8 @@ body {
   /* 微信浏览器特定优化 */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  /* 关键：在微信浏览器中使用 position:relative 防止 fixed 元素抖动 */
+  position: relative;
 }
 
 .wx-browser body {
@@ -64,17 +66,32 @@ body {
   touch-action: manipulation;
   /* 防止微信浏览器中 fixed 元素消失 */
   padding-top: 0 !important;
+  /* 关键：开启惯性滚动但不影响 fixed */
+  -webkit-overflow-scrolling: touch;
+  overflow-x: hidden;
+  overflow-y: auto;
+  /* 关键：防止滚动重排导致 fixed 元素消失 */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 
-/* 微信浏览器中固定元素的特殊处理 */
+/* 微信浏览器中固定元素的特殊处理 - 彻底修复滚动时消失问题 */
 .wx-browser .navbar,
 .wx-browser .fab {
-  /* 使用 transform 而不是 left/top 来避免重绘 */
+  /* 关键修复：三件套防止 fixed 在微信中消失 */
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
   will-change: transform;
-  -webkit-transform: translateZ(0);
-  transform: translateZ(0);
-  /* 确保不被其他元素覆盖 */
-  z-index: 2147483647 !important; /* 最大 z-index 值 */
+  
+  /* 彻底禁用 backdrop-filter - 这是导致 fixed 重绘问题的元凶 */
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: var(--glass-bg) !important;
+  
+  /* 确保 z-index 足够高 */
+  z-index: 2147483647 !important;
 }
 
 /* 动态渐变背景 Blob - 优化性能 */
@@ -188,13 +205,16 @@ body {
   border-radius: var(--radius-xl);
   overflow: visible;
   /* 性能优化 - 确保 fixed 元素稳定 */
-  will-change: position;
-  transform: translateZ(0);
+  will-change: transform;
   -webkit-transform: translateZ(0);
+  transform: translateZ(0);
   /* 确保背景不透明 */
   background: var(--glass-bg);
   backdrop-filter: blur(12px) saturate(1.5);
   -webkit-backdrop-filter: blur(12px) saturate(1.5);
+  /* 关键：防止微信浏览器 fixed 消失 */
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 .nav-inner {
@@ -423,7 +443,7 @@ body[data-theme="dark"] #themeToggle .icon-moon { display: block; }
 .app-main {
   max-width: var(--max-w);
   margin: 0 auto;
-  padding: calc(var(--nav-h) + 40px) 24px 100px;
+  padding: calc(var(--nav-h) + var(--safe-top, 0px) + 40px) 24px calc(100px + var(--safe-bottom, 0px));
 }
 
 /* 通用页面标题 */
@@ -720,9 +740,12 @@ body[data-theme="dark"] #themeToggle .icon-moon { display: block; }
   box-shadow: 0 12px 32px rgba(59, 130, 246, 0.5);
   transition: all var(--transition);
   z-index: 1000;
-  /* 微信浏览器适配 */
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
+  /* 微信浏览器适配 - 防止 fixed 消失 */
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  will-change: transform;
 }
 
 .fab:hover {

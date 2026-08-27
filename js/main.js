@@ -12,16 +12,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
     if (isWeChat) {
-      // 微信浏览器中使用固定的安全区域值
-      document.documentElement.style.setProperty('--safe-top', '20px');
-      document.documentElement.style.setProperty('--safe-bottom', '60px');
+      // 微信浏览器 - 使用更大的安全区域值确保不被原生 UI 遮挡
+      // 状态栏约 44-48px + 顶部导航栏约 44px = ~92px
+      // 底部工具栏约 50-60px + 安全区 = ~70px
+      document.documentElement.style.setProperty('--safe-top', '44px');
+      document.documentElement.style.setProperty('--safe-bottom', '70px');
       document.body.classList.add('wx-browser');
     } else if (isMobile) {
-      // 移动端其他浏览器
-      document.documentElement.style.setProperty('--safe-top', '0px');
-      document.documentElement.style.setProperty('--safe-bottom', '0px');
+      // 移动端其他浏览器 - 使用 CSS env
+      document.documentElement.style.setProperty('--safe-top', 'env(safe-area-inset-top, 0px)');
+      document.documentElement.style.setProperty('--safe-bottom', 'env(safe-area-inset-bottom, 0px)');
     } else {
-      // 其他浏览器使用 CSS env
+      // 桌面浏览器
       document.documentElement.style.setProperty('--safe-top', '0px');
       document.documentElement.style.setProperty('--safe-bottom', '0px');
     }
@@ -34,6 +36,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateSafeArea();
   window.addEventListener('resize', updateSafeArea);
   window.addEventListener('orientationchange', updateSafeArea);
+  // 页面隐藏/显示时重新计算（微信切换标签页后回来可能需要）
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) updateSafeArea();
+  });
 
   // 安全执行器：带超时的步骤
   async function safeStep(name, fn, timeoutMs = 8000) {
