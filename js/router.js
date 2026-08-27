@@ -54,22 +54,36 @@ const Router = {
     app.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;padding:60px;min-height:300px;"><div class="loader" style="width:40px;height:40px;border:3px solid var(--glass-border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;"></div></div>';
 
     try {
-      let content = '';
+      // 渲染超时保护：5 秒内必须完成渲染，否则降级
+      const renderPromise = (async () => {
+        let content = '';
 
-      if (path.startsWith('/board/')) {
-        const boardId = path.slice(7);
-        content = await Forum.renderBoardDetail(boardId);
-      } else if (path.startsWith('/post/')) {
-        const postId = path.slice(6);
-        content = await Forum.renderPostDetail(postId);
-      } else if (path.startsWith('/publish')) {
-        content = await Forum.renderPublish(params.board);
-      } else if (path.startsWith('/admin')) {
-        content = await this.routes['/admin'](params);
-      } else if (this.routes[path]) {
-        content = await this.routes[path](params);
-      } else {
-        content = Forum.renderNotFound();
+        if (path.startsWith('/board/')) {
+          const boardId = path.slice(7);
+          content = await Forum.renderBoardDetail(boardId);
+        } else if (path.startsWith('/post/')) {
+          const postId = path.slice(6);
+          content = await Forum.renderPostDetail(postId);
+        } else if (path.startsWith('/publish')) {
+          content = await Forum.renderPublish(params.board);
+        } else if (path.startsWith('/admin')) {
+          content = await this.routes['/admin'](params);
+        } else if (this.routes[path]) {
+          content = await this.routes[path](params);
+        } else {
+          content = Forum.renderNotFound();
+        }
+        return content;
+      })();
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('渲染超时')), 5000)
+      );
+
+      const content = await Promise.race([renderPromise, timeoutPromise]);
+
+      if (!content) {
+        throw new Error('渲染返回空内容');
       }
 
       app.innerHTML = content;
@@ -97,12 +111,26 @@ const Router = {
       this.updateTitle(path);
     } catch (err) {
       console.error('路由错误:', err);
-      app.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">页面加载失败，请刷新重试</div><button class="btn btn-primary" onclick="location.reload()" style="margin-top:16px;">刷新页面</button></div>`;
+      // 降级：显示基础内容，不再转圈
+      app.innerHTML = `
+        <div class="empty-state" style="padding:60px 20px;">
+          <div class="empty-icon">⚠️</div>
+          <div class="empty-text" style="margin:12px 0;">页面加载失败</div>
+          <div style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">${escapeHtml(err.message || '网络超时，请检查连接')}</div>
+          <button class="btn btn-primary" onclick="Router.refresh()" style="margin-right:8px;">🔄 重试</button>
+          <button class="btn btn-secondary" onclick="Router.navigate('/')">🏠 返回首页</button>
+        </div>`;
     }
   },
 
   navigate(path) {
     location.hash = '#' + path;
+  },
+
+  refresh() {
+    // 强制重新渲染当前路由
+    this._initialized = false; // 重置防重入标记
+    this.handleRoute();
   },
 
   redirect(path) {

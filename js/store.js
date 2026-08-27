@@ -65,6 +65,21 @@ const Store = {
     return window.DB && window.DB.isSupabase();
   },
 
+  // 超时保护的 Supabase 查询包装
+  // 使用: this.safeQuery(() => db.client.from('...').select('...'), [默认值], 3000)
+  async safeQuery(fn, fallback = null, timeoutMs = 3000) {
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('查询超时')), timeoutMs)
+    );
+    try {
+      const result = await Promise.race([fn(), timeout]);
+      return result;
+    } catch (e) {
+      console.warn(`Supabase 查询超时/失败 (${timeoutMs}ms)，降级:`, e.message);
+      return fallback;
+    }
+  },
+
   initLocalMode() {
     // 本地模式：初始化 admin 账号
     if (!this.localCache.users.find(u => u.username === 'admin')) {
@@ -250,12 +265,16 @@ const Store = {
   // ========== 帖子 ==========
   async getPosts() {
     if (this.isSupabase()) {
-      const { data, error } = await window.DB.client
-        .from('posts')
-        .select('*')
-        .order('pinned', { ascending: false })
-        .order('featured', { ascending: false })
-        .order('created_at', { ascending: false });
+      const { data, error } = await this.safeQuery(
+        () => window.DB.client
+          .from('posts')
+          .select('*')
+          .order('pinned', { ascending: false })
+          .order('featured', { ascending: false })
+          .order('created_at', { ascending: false }),
+        { data: null, error: { message: '查询超时' } },
+        3000
+      ) || { data: null, error: { message: '查询超时' } };
       return error ? [] : (data || []).map(p => this.mapPost(p));
     }
     return [...this.localCache.posts].sort((a, b) => {
@@ -275,10 +294,14 @@ const Store = {
 
   async getPostsByBoard(boardId) {
     if (this.isSupabase()) {
-      const { data, error } = await window.DB.client
-        .from('posts').select('*').eq('board_id', boardId)
-        .order('pinned', { ascending: false })
-        .order('created_at', { ascending: false });
+      const { data, error } = await this.safeQuery(
+        () => window.DB.client
+          .from('posts').select('*').eq('board_id', boardId)
+          .order('pinned', { ascending: false })
+          .order('created_at', { ascending: false }),
+        { data: null, error: { message: '查询超时' } },
+        3000
+      ) || { data: null, error: { message: '查询超时' } };
       return error ? [] : (data || []).map(p => this.mapPost(p));
     }
     return this.localCache.posts.filter(p => p.boardId === boardId);
