@@ -1,0 +1,127 @@
+/* ===== 主题变量 - 液态玻璃风格 ===== */
+
+:root {
+  /* 主色调 - 漳州一中配色（深蓝+金色点缀） */
+  --primary: #3b82f6;
+  --primary-light: #60a5fa;
+  --primary-dark: #1d4ed8;
+  --accent: #f59e0b;
+  --accent-light: #fbbf24;
+  --school-blue: #1e40af;
+  --school-gold: #b45309;
+
+  /* 功能色 */
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --info: #3b82f6;
+
+  /* 尺寸 */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-md: 0 8px 24px rgba(0,0,0,0.1);
+  --shadow-lg: 0 16px 48px rgba(0,0,0,0.16);
+  --shadow-glow: 0 0 40px rgba(59,130,246,0.25);
+
+  --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+
+  --nav-h: 68px;
+  --max-w: 1280px;
+}
+
+/* 浅色主题 */
+body[data-theme="light"] {
+  --bg: #e8edf5;
+  --bg-gradient-start: #e0e7ff;
+  --bg-gradient-mid: #fce7f3;
+  --bg-gradient-end: #dbeafe;
+
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-bg-strong: rgba(255, 255, 255, 0.75);
+  --glass-bg-weak: rgba(255, 255, 255, 0.35);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  --glass-ring: rgba(255, 255, 255, 0.8);
+
+  --text: #1f2937;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --text-inverse: #ffffff;
+
+  --glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.12);
+  --card-hover-shadow: 0 16px 48px rgba(31, 38, 135, 0.18);
+
+  --input-bg: rgba(255, 255, 255, 0.5);
+  --input-border: rgba(255, 255, 255, 0.8);
+  --input-focus: rgba(59, 130, 246, 0.3);
+
+  --blur-strong: 24px;
+  --blur-md: 16px;
+  --blur-sm: 10px;
+
+  --overlay: rgba(15, 23, 42, 0.4);
+}
+
+/* 深色主题 */
+body[data-theme="dark"] {
+  --bg: #0f172a;
+  --bg-gradient-start: #1e1b4b;
+  --bg-gradient-mid: #4c1d95;
+  --bg-gradient-end: #0c4a6e;
+
+  --glass-bg: rgba(30, 41, 59, 0.55);
+  --glass-bg-strong: rgba(30, 41, 59, 0.75);
+  --glass-bg-weak: rgba(30, 41, 59, 0.35);
+  --glass-border: rgba(148, 163, 184, 0.2);
+  --glass-ring: rgba(148, 163, 184, 0.3);
+
+  --text: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-inverse: #0f172a;
+
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --card-hover-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+
+  --input-bg: rgba(30, 41, 59, 0.5);
+  --input-border: rgba(148, 163, 184, 0.25);
+  --input-focus: rgba(96, 165, 250, 0.3);
+
+  --blur-strong: 24px;
+  --blur-md: 16px;
+  --blur-sm: 10px;
+
+  --overlay: rgba(0, 0, 0, 0.6);
+}
+
+/* 系统偏好自动检测 */
+@media (prefers-color-scheme: dark) {
+  body[data-theme="auto"] {
+    --bg: #0f172a;
+    --bg-gradient-start: #1e1b4b;
+    --bg-gradient-mid: #4c1d95;
+    --bg-gradient-end: #0c4a6e;
+
+    --glass-bg: rgba(30, 41, 59, 0.55);
+    --glass-bg-strong: rgba(30, 41, 59, 0.75);
+    --glass-bg-weak: rgba(30, 41, 59, 0.35);
+    --glass-border: rgba(148, 163, 184, 0.2);
+    --glass-ring: rgba(148, 163, 184, 0.3);
+
+    --text: #f1f5f9;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
+    --text-inverse: #0f172a;
+
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    --card-hover-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+
+    --input-bg: rgba(30, 41, 59, 0.5);
+    --input-border: rgba(148, 163, 184, 0.25);
+    --input-focus: rgba(96, 165, 250, 0.3);
+  }
+}

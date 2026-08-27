@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#667eea" />
+  <title>漳州一中 · 八年12班交流论坛</title>
+  <link rel="stylesheet" href="css/themes.css" />
+  <link rel="stylesheet" href="css/glass.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/responsive.css" />
+  <link rel="icon" href="images/logo.png" />
+</head>
+<body data-theme="light">
+  <!-- 动态渐变背景 -->
+  <div class="bg-gradient" aria-hidden="true">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+    <div class="blob blob-4"></div>
+  </div>
+
+  <!-- 顶部导航 -->
+  <header id="navbar" class="navbar glass-card">
+    <div class="nav-inner">
+      <a href="#/" class="nav-brand" data-link>
+        <img src="images/logo.png" alt="漳州一中校徽" class="brand-icon" />
+        <span class="brand-text">
+          <span class="brand-school">漳州一中</span>
+          <span class="brand-class">八年12班</span>
+        </span>
+      </a>
+
+      <nav class="nav-links" id="navLinks">
+        <button class="nav-link" data-route="/" onclick="Router.navigate('/')">首页</button>
+        <button class="nav-link" data-route="/board" onclick="Router.navigate('/board')">板块</button>
+        <button class="nav-link" data-route="/explore" onclick="Router.navigate('/explore')">广场</button>
+        <button class="nav-link" data-route="/ranking" onclick="Router.navigate('/ranking')">排行</button>
+      </nav>
+
+      <div class="nav-actions">
+        <button class="icon-btn" id="themeToggle" title="切换主题">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+
+        <button class="icon-btn" id="searchBtn" title="搜索">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+
+        <span id="navUserArea"></span>
+
+        <button class="icon-btn menu-btn" id="menuBtn" title="菜单">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 移动端菜单（已删除） -->
+  </header>
+
+  <!-- 搜索框 -->
+  <div class="search-overlay" id="searchOverlay">
+    <div class="search-box glass-card">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="search-icon"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="searchInput" placeholder="搜索帖子、用户、板块..." />
+      <button class="icon-btn" id="searchClose">✕</button>
+    </div>
+    <div class="search-results glass-card" id="searchResults"></div>
+  </div>
+
+  <!-- 主内容区 -->
+  <main id="app" class="app-main"></main>
+
+  <!-- 浮动操作按钮 -->
+  <button class="fab" id="fab" title="发布新帖">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+
+  <!-- 模态容器 -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal glass-card" id="modalContent"></div>
+  </div>
+
+  <!-- Toast 容器 -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- 底部 -->
+  <footer class="app-footer glass-card">
+    <div class="footer-inner">
+      <span><img src="images/logo.png" alt="校徽" class="footer-logo" /> 漳州一中 · 八年12班</span>
+      <span>© 2026 交流论坛 · 由 詹航瑜 开发</span>
+    </div>
+  </footer>
+
+  <!-- Supabase CDN（云数据库，可选）-->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/dist/umd/supabase.min.js"></script>
+  <!-- Supabase 配置与初始化（在 store.js 之前加载）-->
+  <script src="js/supabase.js"></script>
+  <!-- JavaScript 模块 -->
+  <script src="js/store.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/forum.js"></script>
+  <script src="js/router.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
