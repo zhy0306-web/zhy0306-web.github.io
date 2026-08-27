@@ -1,5 +1,10 @@
 // ===== 主入口（支持 async 初始化）=====
 document.addEventListener('DOMContentLoaded', async () => {
+  // 全局安全超时：初始化超过 10 秒自动降级，避免一直转圈
+  const initTimeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('初始化超时')), 10000)
+  );
+
   // 0. 微信浏览器适配：动态检测安全区域
   function updateSafeArea() {
     // 检测是否在微信浏览器中
@@ -30,28 +35,39 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.addEventListener('resize', updateSafeArea);
   window.addEventListener('orientationchange', updateSafeArea);
 
-  // 1. 初始化 Supabase 连接（如果配置了的话）
-  if (window.DB && typeof window.DB.init === 'function') {
+  // 安全执行器：带超时的步骤
+  async function safeStep(name, fn, timeoutMs = 8000) {
+    const p = Promise.resolve().then(() => fn());
+    const t = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`${name} 超时`)), timeoutMs)
+    );
     try {
-      await window.DB.init();
+      return await Promise.race([p, t]);
     } catch (e) {
-      console.warn('数据库初始化失败，使用本地存储:', e.message);
+      console.warn(`${name} 失败（已降级）:`, e.message);
+      return null;
     }
   }
 
-  // 2. 初始化 Store（异步）
+  try {
+  // 1. 初始化 Supabase 连接（带超时降级）
+  if (window.DB && typeof window.DB.init === 'function') {
+    await safeStep('Supabase', () => window.DB.init(), 5000);
+  }
+
+  // 2. 初始化 Store
   if (typeof Store.init === 'function') {
-    await Store.init();
+    await safeStep('Store', () => Store.init(), 5000);
   }
 
   // 3. 应用主题
   const theme = Store.getTheme();
   document.body.setAttribute('data-theme', theme);
 
-  // 4. 初始化认证（异步，恢复 session）
-  await Auth.init();
+  // 4. 初始化认证
+  await safeStep('Auth', () => Auth.init(), 3000);
 
-  // 5. 初始化路由
+  // 5. 初始化路由（触发首屏渲染）
   Router.init();
 
   // 6. 主题切换
@@ -245,4 +261,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   console.log('开发者：詹航瑜（八年12班）');
   console.log('管理员账号：admin / admin123');
   console.log('💡 要启用云数据库，请配置 js/supabase.js 中的 URL 和 anon key');
+
+  } catch (initErr) {
+    // 初始化全局降级：无论哪个步骤超时，都强制启动路由，避免一直转圈
+    console.warn('初始化步骤超时或失败，强制启动路由:', initErr.message);
+    // 如果路由还没初始化，立即执行
+    if (!Router._initialized) {
+      Router.init();
+    }
+  }
 });

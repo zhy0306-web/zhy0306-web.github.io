@@ -25,6 +25,8 @@ const Router = {
   },
 
   init() {
+    if (this._initialized) return; // 防止重复初始化
+    this._initialized = true;
     window.addEventListener('hashchange', () => this.handleRoute());
     window.addEventListener('popstate', () => this.handleRoute());
     this.handleRoute();

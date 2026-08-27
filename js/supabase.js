@@ -20,7 +20,12 @@ const DB = {
           SUPABASE_CONFIG.url,
           SUPABASE_CONFIG.anonKey
         );
-        const { data, error } = await this.client.from('settings').select('*').limit(1);
+        // 带超时的连接检测（5 秒，防止无限挂起）
+        const queryPromise = this.client.from('settings').select('*').limit(1);
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Supabase 连接超时')), 5000)
+        );
+        const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
         if (!error) {
           this.mode = 'supabase';
           this.connected = true;
