@@ -126,6 +126,116 @@ function fileToBase64(file) {
   });
 }
 
+// ===== 图片压缩 =====
+// 使用 Canvas API 压缩上传图片，减轻服务器负担
+// 默认: 最大边 1920px, JPEG 质量 0.8, 仅压缩 >200KB 的图片
+async function compressImage(file, options = {}) {
+  const {
+    maxWidth = 1920,
+    maxHeight = 1920,
+    quality = 0.8,
+    minSize = 200 * 1024,
+    preservePng = true
+  } = options;
+
+  // 非图片格式直接返回
+  if (!file.type.startsWith('image/')) {
+    return { dataUrl: await fileToBase64(file), compressed: false, originalSize: file.size, newSize: file.size };
+  }
+
+  // 不支持的格式 (HEIC 等) 直接返回原图
+  const supported = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'image/bmp'];
+  if (!supported.includes(file.type)) {
+    return { dataUrl: await fileToBase64(file), compressed: false, originalSize: file.size, newSize: file.size };
+  }
+
+  // 小图跳过压缩
+  if (file.size < minSize) {
+    return { dataUrl: await fileToBase64(file), compressed: false, originalSize: file.size, newSize: file.size };
+  }
+
+  // 加载图片
+  const img = await loadImage(file);
+  const originalW = img.naturalWidth;
+  const originalH = img.naturalHeight;
+  const originalSize = file.size;
+
+  // 判断是否需要缩放
+  const ratio = Math.min(maxWidth / originalW, maxHeight / originalH, 1);
+  const targetW = Math.round(originalW * ratio);
+  const targetH = Math.round(originalH * ratio);
+
+  // PNG 保留透明通道: 如果原图是 PNG 且 preservePng=true，检查是否有透明像素
+  const isPng = file.type === 'image/png';
+  let needPng = isPng && preservePng;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = targetW;
+  canvas.height = targetH;
+  const ctx = canvas.getContext('2d');
+
+  if (needPng) {
+    // PNG: 用 PNG 格式保留透明
+    // 检查原图是否有透明像素
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = originalW;
+    tempCanvas.height = originalH;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.drawImage(img, 0, 0);
+    try {
+      const alphaData = tempCtx.getImageData(0, 0, originalW, originalH).data;
+      let hasAlpha = false;
+      for (let i = 3; i < alphaData.length; i += 4) {
+        if (alphaData[i] < 250) { hasAlpha = true; break; }
+      }
+      needPng = hasAlpha;
+    } catch (e) {
+      needPng = false; // 跨域污染时退化为 JPEG
+    }
+  }
+
+  // 绘制
+  if (needPng) {
+    // 透明背景
+    ctx.clearRect(0, 0, targetW, targetH);
+  } else {
+    // JPEG 白底
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, targetW, targetH);
+  }
+  ctx.drawImage(img, 0, 0, targetW, targetH);
+
+  // 导出
+  const outputType = needPng ? 'image/png' : 'image/jpeg';
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, outputType, quality));
+
+  // 如果压缩后反而更大，用原图
+  if (blob && blob.size < originalSize) {
+    const dataUrl = await fileToBase64(blob);
+    return { dataUrl, compressed: true, originalSize, newSize: blob.size, width: targetW, height: targetH };
+  } else {
+    return { dataUrl: await fileToBase64(file), compressed: false, originalSize, newSize: originalSize };
+  }
+}
+
+// 加载图片为 HTMLImageElement（支持本地文件）
+function loadImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { resolve(img); URL.revokeObjectURL(url); };
+    img.onerror = (e) => { reject(e); URL.revokeObjectURL(url); };
+    img.src = url;
+  });
+}
+
+// 格式化文件大小
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+}
+
 // 排名计算
 function computeUserRank(userId) {
   const posts = Store.getPostsByUser(userId);

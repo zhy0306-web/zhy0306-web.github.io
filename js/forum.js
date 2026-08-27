@@ -282,6 +282,7 @@ const Forum = {
             <div class="image-uploader" id="imageUploader">
               <div style="font-size:36px;">📷</div>
               <div style="font-size:14px;margin-top:8px;color:var(--text-secondary);">点击或拖拽上传图片</div>
+              <div style="font-size:11px;margin-top:4px;color:var(--text-muted);">📦 上传后自动压缩，最大 1920px</div>
             </div>
             <input type="file" id="imageInput" accept="image/*" multiple style="display:none;" />
             <div class="image-preview-grid" id="imagePreview"></div>
@@ -736,7 +737,7 @@ const Forum = {
     const replyCount = document.getElementById('replyCount');
     if (replyText && replyCount) replyText.addEventListener('input', () => { replyCount.textContent = countWords(replyText.value); });
 
-    // 图片上传
+    // 图片上传（集成自动压缩）
     const uploader = document.getElementById('imageUploader');
     const imageInput = document.getElementById('imageInput');
     if (uploader && imageInput) {
@@ -747,21 +748,12 @@ const Forum = {
       uploader.ondrop = async (e) => {
         e.preventDefault(); uploader.style.background = '';
         const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-        for (const file of files) {
-          if (this._pendingImages.length >= 5) break;
-          const dataUrl = await fileToBase64(file);
-          this._pendingImages.push(dataUrl);
-        }
-        this.renderImagePreview();
+        await Forum._processUploadedImages(files);
       };
       imageInput.onchange = async (e) => {
         const files = Array.from(e.target.files);
-        for (const file of files) {
-          if (this._pendingImages.length >= 5) break;
-          const dataUrl = await fileToBase64(file);
-          this._pendingImages.push(dataUrl);
-        }
-        this.renderImagePreview();
+        await Forum._processUploadedImages(files);
+        imageInput.value = '';
       };
     }
 
@@ -774,6 +766,41 @@ const Forum = {
         this.renderProfileContent(tab.dataset.tab);
       });
     });
+  },
+
+  // 处理上传图片（压缩 + 存储 + 反馈）
+  async _processUploadedImages(files) {
+    const maxImg = parseInt(document.getElementById('setMaxImg')?.value) || 5;
+    let compressedCount = 0;
+    let totalSaved = 0;
+
+    for (const file of files) {
+      if (this._pendingImages.length >= maxImg) break;
+      try {
+        const result = await compressImage(file);
+        this._pendingImages.push(result.dataUrl);
+        if (result.compressed) {
+          compressedCount++;
+          totalSaved += (result.originalSize - result.newSize);
+        }
+      } catch (err) {
+        // 压缩失败时回退到原图
+        const dataUrl = await fileToBase64(file);
+        this._pendingImages.push(dataUrl);
+      }
+    }
+
+    this.renderImagePreview();
+
+    // 压缩结果反馈
+    if (compressedCount > 0) {
+      const savedStr = totalSaved >= 1024 * 1024
+        ? (totalSaved / 1024 / 1024).toFixed(1) + ' MB'
+        : (totalSaved / 1024).toFixed(0) + ' KB';
+      Toast.show('success', `已压缩 ${compressedCount} 张图片，节省 ${savedStr}`);
+    } else if (files.length > 0) {
+      Toast.show('info', `已添加 ${files.length} 张图片`);
+    }
   },
 
   renderImagePreview() {
